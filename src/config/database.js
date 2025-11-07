@@ -10,6 +10,12 @@ const sequelize = new Sequelize(
     host: process.env.MYSQL_ADDON_HOST,
     port: process.env.MYSQL_ADDON_PORT,
     dialect: 'mysql',
+    pool: {
+      max: 5,
+      min: 0,
+      acquire: 30000,
+      idle: 10000
+    }
   }
 );
 
