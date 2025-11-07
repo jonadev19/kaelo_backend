@@ -10,40 +10,37 @@ Para levantar el proyecto, se realizaron los siguientes cambios:
 
 1.  **Instalación de Dependencias:** Se añadieron los paquetes necesarios para la autenticación y la conexión a la base de datos MySQL.
     ```bash
-    npm install express sequelize mysql2 jsonwebtoken bcryptjs dotenv
+    npm install express sequelize mysql2 jsonwebtoken bcryptjs dotenv cors
     ```
 2.  **Estructura de Archivos:** Se crearon los siguientes archivos y directorios:
     -   `src/config/database.js`: Contiene la configuración y conexión de Sequelize a la base de datos.
-    -   `src/models/User.js`: Define el modelo de datos para los usuarios.
-    -   `src/controllers/authController.js`: Contiene la lógica de negocio para el registro y login.
-    -   `src/routes/auth.js`: Define las rutas para la autenticación.
-3.  **Actualización de `server.js`:** Se modificó el archivo principal para incluir la conexión a la base de datos, el middleware para parsear JSON y las rutas de autenticación.
+    -   `src/models/`: Contiene los modelos de datos para `User`, `Route`, `Store`, y `Transaction`.
+    -   `src/controllers/`: Contiene la lógica de negocio para la autenticación, administración y el resto de entidades.
+    -   `src/routes/`: Define las rutas para todos los módulos.
+    -   `src/middlewares/`: Contiene los middlewares de autenticación (`auth` y `authAdmin`).
+3.  **Actualización de `server.js`:** Se modificó el archivo principal para incluir la conexión a la base de datos, middlewares y todas las rutas de la API.
 
 ---
 
 ## 2. Módulo de Autenticación
 
-Estos son los endpoints para la gestión de cuentas de usuario.
+Endpoints para la gestión de cuentas de usuario.
 
 ### Registrar un nuevo usuario
 
 -   **Método:** `POST`
 -   **URL:** `/api/auth/register`
--   **Descripción:** Crea una nueva cuenta de usuario en el sistema.
 -   **Acceso:** Público
--   **Body (Request):**
-
+-   **Body:**
     ```json
     {
       "nombre": "Nombre del Usuario",
       "email": "usuario@ejemplo.com",
       "password": "una_contraseña_segura",
-      "rol": "Ciclista" // Puede ser 'Ciclista', 'Comerciante', o 'Creador de Ruta'
+      "rol": "Ciclista" // 'Ciclista', 'Comerciante', o 'Creador de Ruta'
     }
     ```
-
--   **Respuesta Exitosa (200 OK):**
-
+-   **Respuesta Exitosa (201_OK):**
     ```json
     {
       "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
@@ -54,19 +51,15 @@ Estos son los endpoints para la gestión de cuentas de usuario.
 
 -   **Método:** `POST`
 -   **URL:** `/api/auth/login`
--   **Descripción:** Autentica a un usuario existente y devuelve un token de sesión.
 -   **Acceso:** Público
--   **Body (Request):**
-
+-   **Body:**
     ```json
     {
       "email": "usuario@ejemplo.com",
       "password": "una_contraseña_segura"
     }
     ```
-
 -   **Respuesta Exitosa (200 OK):**
-
     ```json
     {
       "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
@@ -75,7 +68,189 @@ Estos son los endpoints para la gestión de cuentas de usuario.
 
 ---
 
-## 3. Módulo de Administración
+## 3. Módulo de Perfil de Usuario
+
+Endpoints para que los usuarios gestionen su propia información.
+
+### Obtener mi perfil
+
+-   **Método:** `GET`
+-   **URL:** `/api/users/me`
+-   **Acceso:** Privado (Cualquier usuario autenticado)
+-   **Headers:** `x-auth-token: <tu_jwt>`
+-   **Respuesta Exitosa (200 OK):** Devuelve el objeto del usuario sin la contraseña.
+
+### Actualizar mi perfil
+
+-   **Método:** `PUT`
+-   **URL:** `/api/users/me`
+-   **Acceso:** Privado (Cualquier usuario autenticado)
+-   **Headers:** `x-auth-token: <tu_jwt>`
+-   **Body:**
+    ```json
+    {
+      "nombre": "Nuevo Nombre",
+      "email": "nuevo_email@ejemplo.com"
+    }
+    ```
+-   **Respuesta Exitosa (200 OK):**
+    ```json
+    {
+      "msg": "Profile updated successfully"
+    }
+    ```
+
+---
+
+## 4. Módulo de Rutas (Público y Creadores)
+
+Endpoints para interactuar con las rutas.
+
+### Obtener todas las rutas aprobadas
+
+-   **Método:** `GET`
+-   **URL:** `/api/routes`
+-   **Acceso:** Público
+-   **Respuesta Exitosa (200 OK):** Devuelve un array de rutas con estado 'aprobada'.
+
+### Obtener una ruta por ID
+
+-   **Método:** `GET`
+-   **URL:** `/api/routes/:id`
+-   **Acceso:** Público
+-   **Respuesta Exitosa (200 OK):** Devuelve una única ruta si está 'aprobada'.
+
+### Crear una nueva ruta
+
+-   **Método:** `POST`
+-   **URL:** `/api/routes`
+-   **Acceso:** Privado (Solo 'Creador de Ruta')
+-   **Headers:** `x-auth-token: <tu_jwt_creador>`
+-   **Body:**
+    ```json
+    {
+      "nombre": "Mi Nueva Ruta",
+      "descripcion": "Descripción de la ruta.",
+      "distancia": 15.5,
+      "dificultad": "Intermedia",
+      "precio": 5.00
+    }
+    ```
+-   **Respuesta Exitosa (201 Created):** Devuelve el objeto de la nueva ruta con estado 'pendiente'.
+
+### Actualizar una de mis rutas
+
+-   **Método:** `PUT`
+-   **URL:** `/api/routes/:id`
+-   **Acceso:** Privado (Solo 'Creador de Ruta' sobre sus propias rutas)
+-   **Headers:** `x-auth-token: <tu_jwt_creador>`
+-   **Body:** Campos a actualizar.
+-   **Respuesta Exitosa (200 OK):** Devuelve el objeto de la ruta actualizada.
+
+### Eliminar una de mis rutas
+
+-   **Método:** `DELETE`
+-   **URL:** `/api/routes/:id`
+-   **Acceso:** Privado (Solo 'Creador de Ruta' sobre sus propias rutas)
+-   **Headers:** `x-auth-token: <tu_jwt_creador>`
+-   **Respuesta Exitosa (200 OK):**
+    ```json
+    {
+      "msg": "Route removed"
+    }
+    ```
+
+---
+
+## 5. Módulo de Comercios (Público y Comerciantes)
+
+Endpoints para interactuar con los comercios.
+
+### Obtener todos los comercios activos
+
+-   **Método:** `GET`
+-   **URL:** `/api/stores`
+-   **Acceso:** Público
+-   **Respuesta Exitosa (200 OK):** Devuelve un array de comercios con estado 'activo'.
+
+### Obtener un comercio por ID
+
+-   **Método:** `GET`
+-   **URL:** `/api/stores/:id`
+-   **Acceso:** Público
+-   **Respuesta Exitosa (200 OK):** Devuelve un único comercio si está 'activo'.
+
+### Crear un nuevo comercio
+
+-   **Método:** `POST`
+-   **URL:** `/api/stores`
+-   **Acceso:** Privado (Solo 'Comerciante')
+-   **Headers:** `x-auth-token: <tu_jwt_comerciante>`
+-   **Body:**
+    ```json
+    {
+      "nombre": "Mi Tienda",
+      "descripcion": "Descripción de mi tienda.",
+      "ubicacion": "Dirección de la tienda"
+    }
+    ```
+-   **Respuesta Exitosa (201 Created):** Devuelve el objeto del nuevo comercio con estado 'pendiente'.
+
+### Actualizar mi comercio
+
+-   **Método:** `PUT`
+-   **URL:** `/api/stores/:id`
+-   **Acceso:** Privado (Solo 'Comerciante' sobre su propio comercio)
+-   **Headers:** `x-auth-token: <tu_jwt_comerciante>`
+-   **Body:** Campos a actualizar.
+-   **Respuesta Exitosa (200 OK):** Devuelve el objeto del comercio actualizado.
+
+### Eliminar mi comercio
+
+-   **Método:** `DELETE`
+-   **URL:** `/api/stores/:id`
+-   **Acceso:** Privado (Solo 'Comerciante' sobre su propio comercio)
+-   **Headers:** `x-auth-token: <tu_jwt_comerciante>`
+-   **Respuesta Exitosa (200 OK):**
+    ```json
+    {
+      "msg": "Store removed"
+    }
+    ```
+
+---
+
+## 6. Módulo de Transacciones
+
+Endpoints para la gestión de transacciones de los usuarios.
+
+### Obtener mis transacciones
+
+-   **Método:** `GET`
+-   **URL:** `/api/transactions/my-transactions`
+-   **Acceso:** Privado (Cualquier usuario autenticado)
+-   **Headers:** `x-auth-token: <tu_jwt>`
+-   **Respuesta Exitosa (200 OK):** Devuelve un array de las transacciones del usuario.
+
+### Crear una nueva transacción
+
+-   **Método:** `POST`
+-   **URL:** `/api/transactions`
+-   **Acceso:** Privado (Cualquier usuario autenticado)
+-   **Headers:** `x-auth-token: <tu_jwt>`
+-   **Body:**
+    ```json
+    {
+      "monto": 10.00,
+      "tipo": "compra_ruta",
+      "rutaId": 1
+    }
+    ```
+-   **Respuesta Exitosa (201 Created):** Devuelve el objeto de la nueva transacción.
+
+---
+
+## 7. Módulo de Administración
 
 Endpoints para la gestión y monitoreo de la plataforma. Requieren un rol de `Admin`.
 
@@ -83,16 +258,9 @@ Endpoints para la gestión y monitoreo de la plataforma. Requieren un rol de `Ad
 
 -   **Método:** `GET`
 -   **URL:** `/api/admin/dashboard`
--   **Descripción:** Devuelve un resumen de las métricas clave de la plataforma para ser mostradas en el panel de administración.
--   **Acceso:** Privado (Solo para usuarios con rol `Admin`)
--   **Headers (Request):**
-
-    ```
-    x-auth-token: <tu_jwt_de_admin>
-    ```
-
+-   **Acceso:** Privado (Solo `Admin`)
+-   **Headers:** `x-auth-token: <tu_jwt_de_admin>`
 -   **Respuesta Exitosa (200 OK):**
-
     ```json
     {
       "totalUsers": 150,
@@ -102,247 +270,33 @@ Endpoints para la gestión y monitoreo de la plataforma. Requieren un rol de `Ad
     }
     ```
 
-### Gestión de Usuarios
+### Gestión de Usuarios (CRUD Completo)
 
-### Obtener todos los usuarios
+-   `GET /api/admin/users`: Obtener todos los usuarios.
+-   `GET /api/admin/users/:id`: Obtener un usuario por ID.
+-   `POST /api/admin/users`: Crear un usuario.
+-   `PUT /api/admin/users/:id`: Actualizar un usuario.
+-   `DELETE /api/admin/users/:id`: Eliminar un usuario.
 
--   **Método:** `GET`
--   **URL:** `/api/admin/users`
--   **Descripción:** Retorna una lista de todos los usuarios registrados en la plataforma.
--   **Acceso:** Privado (Solo `Admin`)
--   **Headers (Request):**
-    ```
-    x-auth-token: <tu_jwt_de_admin>
-    ```
--   **Respuesta Exitosa (200 OK):**
-    ```json
-    [
-      {
-        "id": 1,
-        "nombre": "Juan Pérez",
-        "email": "juan@example.com",
-        "rol": "Ciclista",
-        "createdAt": "2023-10-27T10:00:00.000Z",
-        "updatedAt": "2023-10-27T10:00:00.000Z"
-      }
-    ]
-    ```
+### Gestión de Rutas (CRUD Completo)
 
-### Crear un nuevo usuario
+-   `GET /api/admin/routes`: Obtener todas las rutas.
+-   `GET /api/admin/routes/:id`: Obtener una ruta por ID.
+-   `POST /api/admin/routes`: Crear una ruta (aprobada por defecto).
+-   `PUT /api/admin/routes/:id`: Actualizar cualquier campo de una ruta.
+-   `PUT /api/admin/routes/:id/status`: Actualizar solo el estado de una ruta.
+-   `DELETE /api/admin/routes/:id`: Eliminar una ruta.
 
--   **Método:** `POST`
--   **URL:** `/api/admin/users`
--   **Descripción:** Crea un nuevo usuario. Útil para registrar administradores o comerciantes manualmente.
--   **Acceso:** Privado (Solo `Admin`)
--   **Headers (Request):**
-    ```
-    x-auth-token: <tu_jwt_de_admin>
-    ```
--   **Body (Request):**
-    ```json
-    {
-      "nombre": "Nuevo Usuario",
-      "email": "nuevo@example.com",
-      "password": "password123",
-      "rol": "Comerciante"
-    }
-    ```
--   **Respuesta Exitosa (200 OK):**
-    ```json
-    {
-      "msg": "Usuario creado exitosamente"
-    }
-    ```
+### Gestión de Comercios (CRUD Completo)
 
-### Actualizar un usuario
-
--   **Método:** `PUT`
--   **URL:** `/api/admin/users/:id`
--   **Descripción:** Modifica la información de un usuario existente.
--   **Acceso:** Privado (Solo `Admin`)
--   **Headers (Request):**
-    ```
-    x-auth-token: <tu_jwt_de_admin>
-    ```
--   **Body (Request):**
-    ```json
-    {
-      "nombre": "Nombre Actualizado",
-      "email": "email_actualizado@example.com",
-      "rol": "Creador de Ruta"
-    }
-    ```
--   **Respuesta Exitosa (200 OK):**
-    ```json
-    {
-      "msg": "Usuario actualizado exitosamente"
-    }
-    ```
-
-### Eliminar un usuario
-
--   **Método:** `DELETE`
--   **URL:** `/api/admin/users/:id`
--   **Descripción:** Elimina un usuario de la base de datos.
--   **Acceso:** Privado (Solo `Admin`)
--   **Headers (Request):**
-    ```
-    x-auth-token: <tu_jwt_de_admin>
-    ```
--   **Respuesta Exitosa (200 OK):**
-    ```json
-    {
-      "msg": "Usuario eliminado exitosamente"
-    }
-    ```
-
-### Gestión de Rutas
-
-### Obtener todas las rutas
-
--   **Método:** `GET`
--   **URL:** `/api/admin/routes`
--   **Descripción:** Retorna una lista de todas las rutas de la plataforma, incluyendo la información de su creador.
--   **Acceso:** Privado (Solo `Admin`)
--   **Headers (Request):**
-    ```
-    x-auth-token: <tu_jwt_de_admin>
-    ```
--   **Respuesta Exitosa (200 OK):**
-    ```json
-    [
-      {
-        "id": 1,
-        "nombre": "Ruta del Sol",
-        "descripcion": "Una hermosa ruta por la costa.",
-        "distancia": 25.5,
-        "dificultad": "Intermedia",
-        "precio": 10.00,
-        "estado": "pendiente",
-        "creador": {
-          "nombre": "Carlos Ruiz"
-        }
-      }
-    ]
-    ```
-
-### Actualizar estado de una ruta
-
--   **Método:** `PUT`
--   **URL:** `/api/admin/routes/:id/status`
--   **Descripción:** Permite al administrador aprobar o rechazar una ruta pendiente.
--   **Acceso:** Privado (Solo `Admin`)
--   **Headers (Request):**
-    ```
-    x-auth-token: <tu_jwt_de_admin>
-    ```
--   **Body (Request):**
-    ```json
-    {
-      "estado": "aprobada" // o "rechazada"
-    }
-    ```
--   **Respuesta Exitosa (200 OK):**
-    ```json
-    {
-      "msg": "Ruta aprobada exitosamente"
-    }
-    ```
-
-### Eliminar una ruta
-
--   **Método:** `DELETE`
--   **URL:** `/api/admin/routes/:id`
--   **Descripción:** Elimina una ruta de la plataforma.
--   **Acceso:** Privado (Solo `Admin`)
--   **Headers (Request):**
-    ```
-    x-auth-token: <tu_jwt_de_admin>
-    ```
--   **Respuesta Exitosa (200 OK):**
-    ```json
-    {
-      "msg": "Ruta eliminada exitosamente"
-    }
-    ```
-
-### Gestión de Comercios
-
-### Obtener todos los comercios
-
--   **Método:** `GET`
--   **URL:** `/api/admin/stores`
--   **Descripción:** Retorna una lista de todos los comercios registrados.
--   **Acceso:** Privado (Solo `Admin`)
--   **Headers (Request):**
-    ```
-    x-auth-token: <tu_jwt_de_admin>
-    ```
--   **Respuesta Exitosa (200 OK):**
-    ```json
-    [
-      {
-        "id": 1,
-        "nombre": "Tienda de Ana",
-        "descripcion": "Venta de artesanías locales.",
-        "ubicacion": "Calle Principal 123",
-        "estado": "pendiente",
-        "propietario": {
-          "nombre": "Ana Gómez"
-        }
-      }
-    ]
-    ```
-
-### Actualizar estado de un comercio
-
--   **Método:** `PUT`
--   **URL:** `/api/admin/stores/:id/status`
--   **Descripción:** Permite al administrador aprobar o desactivar un comercio.
--   **Acceso:** Privado (Solo `Admin`)
--   **Headers (Request):**
-    ```
-    x-auth-token: <tu_jwt_de_admin>
-    ```
--   **Body (Request):**
-    ```json
-    {
-      "estado": "activo" // o "inactivo"
-    }
-    ```
--   **Respuesta Exitosa (200 OK):**
-    ```json
-    {
-      "msg": "Comercio activo exitosamente"
-    }
-    ```
+-   `GET /api/admin/stores`: Obtener todos los comercios.
+-   `GET /api/admin/stores/:id`: Obtener un comercio por ID.
+-   `POST /api/admin/stores`: Crear un comercio (activo por defecto).
+-   `PUT /api/admin/stores/:id`: Actualizar cualquier campo de un comercio.
+-   `PUT /api/admin/stores/:id/status`: Actualizar solo el estado de un comercio.
+-   `DELETE /api/admin/stores/:id`: Eliminar un comercio.
 
 ### Gestión de Transacciones
 
-### Obtener todas las transacciones
-
--   **Método:** `GET`
--   **URL:** `/api/admin/transactions`
--   **Descripción:** Retorna una lista de todas las transacciones de la plataforma.
--   **Acceso:** Privado (Solo `Admin`)
--   **Headers (Request):**
-    ```
-    x-auth-token: <tu_jwt_de_admin>
-    ```
--   **Respuesta Exitosa (200 OK):**
-    ```json
-    [
-      {
-        "id": 1,
-        "monto": 10.00,
-        "tipo": "compra_ruta",
-        "usuario": {
-          "nombre": "Juan Pérez",
-          "email": "juan@example.com"
-        },
-        "ruta": {
-          "nombre": "Ruta del Sol"
-        }
-      }
-    ]
-    ```
+-   `GET /api/admin/transactions`: Obtener todas las transacciones.
+-   `GET /api/admin/transactions/:id`: Obtener una transacción por ID.

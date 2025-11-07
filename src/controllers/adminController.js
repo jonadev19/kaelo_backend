@@ -43,6 +43,25 @@ exports.getUsers = async (req, res) => {
   }
 };
 
+exports.getUserById = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const user = await User.findByPk(id, {
+      attributes: { exclude: ['password'] },
+    });
+
+    if (!user) {
+      return res.status(404).json({ msg: 'Usuario no encontrado' });
+    }
+
+    res.json(user);
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).send('Error en el servidor');
+  }
+};
+
 exports.createUser = async (req, res) => {
   const { nombre, email, password, rol } = req.body;
 
@@ -100,9 +119,25 @@ exports.deleteUser = async (req, res) => {
   const { id } = req.params;
 
   try {
-    let user = await User.findByPk(id);
+    const user = await User.findByPk(id);
     if (!user) {
       return res.status(404).json({ msg: 'Usuario no encontrado' });
+    }
+
+    // Verificar dependencias antes de eliminar
+    const relatedRoutes = await Route.count({ where: { creadorId: id } });
+    if (relatedRoutes > 0) {
+      return res.status(400).json({ msg: 'No se puede eliminar el usuario porque tiene rutas asociadas.' });
+    }
+
+    const relatedStores = await Store.count({ where: { propietarioId: id } });
+    if (relatedStores > 0) {
+      return res.status(400).json({ msg: 'No se puede eliminar el usuario porque tiene comercios asociados.' });
+    }
+
+    const relatedTransactions = await Transaction.count({ where: { usuarioId: id } });
+    if (relatedTransactions > 0) {
+      return res.status(400).json({ msg: 'No se puede eliminar el usuario porque tiene transacciones asociadas.' });
     }
 
     await user.destroy();
@@ -110,7 +145,7 @@ exports.deleteUser = async (req, res) => {
     res.json({ msg: 'Usuario eliminado exitosamente' });
 
   } catch (error) {
-    console.error(error.message);
+    console.error('Error al eliminar usuario:', error.message);
     res.status(500).send('Error en el servidor');
   }
 };
@@ -127,6 +162,79 @@ exports.getRoutes = async (req, res) => {
       },
     });
     res.json(routes);
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).send('Error en el servidor');
+  }
+};
+
+exports.getRouteById = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const route = await Route.findByPk(id, {
+      include: {
+        model: User,
+        as: 'creador',
+        attributes: ['nombre'],
+      },
+    });
+
+    if (!route) {
+      return res.status(404).json({ msg: 'Ruta no encontrada' });
+    }
+
+    res.json(route);
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).send('Error en el servidor');
+  }
+};
+
+exports.createRoute = async (req, res) => {
+  const { nombre, descripcion, distancia, dificultad, precio, creadorId } = req.body;
+
+  try {
+    const route = await Route.create({
+      nombre,
+      descripcion,
+      distancia,
+      dificultad,
+      precio,
+      creadorId,
+      estado: 'aprobada' // Las rutas creadas por un admin se aprueban automáticamente
+    });
+
+    res.status(201).json({ msg: 'Ruta creada exitosamente', route });
+
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).send('Error en el servidor');
+  }
+};
+
+exports.updateRoute = async (req, res) => {
+  const { id } = req.params;
+  const { nombre, descripcion, distancia, dificultad, precio, creadorId, estado } = req.body;
+
+  try {
+    let route = await Route.findByPk(id);
+    if (!route) {
+      return res.status(404).json({ msg: 'Ruta no encontrada' });
+    }
+
+    route.nombre = nombre || route.nombre;
+    route.descripcion = descripcion || route.descripcion;
+    route.distancia = distancia || route.distancia;
+    route.dificultad = dificultad || route.dificultad;
+    route.precio = precio || route.precio;
+    route.creadorId = creadorId || route.creadorId;
+    route.estado = estado || route.estado;
+
+    await route.save();
+
+    res.json({ msg: 'Ruta actualizada exitosamente' });
+
   } catch (error) {
     console.error(error.message);
     res.status(500).send('Error en el servidor');
@@ -196,6 +304,75 @@ exports.getStores = async (req, res) => {
   }
 };
 
+exports.getStoreById = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const store = await Store.findByPk(id, {
+      include: {
+        model: User,
+        as: 'propietario',
+        attributes: ['nombre'],
+      },
+    });
+
+    if (!store) {
+      return res.status(404).json({ msg: 'Comercio no encontrado' });
+    }
+
+    res.json(store);
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).send('Error en el servidor');
+  }
+};
+
+exports.createStore = async (req, res) => {
+  const { nombre, descripcion, ubicacion, propietarioId } = req.body;
+
+  try {
+    const store = await Store.create({
+      nombre,
+      descripcion,
+      ubicacion,
+      propietarioId,
+      estado: 'activo' // Los comercios creados por un admin se activan automáticamente
+    });
+
+    res.status(201).json({ msg: 'Comercio creado exitosamente', store });
+
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).send('Error en el servidor');
+  }
+};
+
+exports.updateStore = async (req, res) => {
+  const { id } = req.params;
+  const { nombre, descripcion, ubicacion, propietarioId, estado } = req.body;
+
+  try {
+    let store = await Store.findByPk(id);
+    if (!store) {
+      return res.status(404).json({ msg: 'Comercio no encontrado' });
+    }
+
+    store.nombre = nombre || store.nombre;
+    store.descripcion = descripcion || store.descripcion;
+    store.ubicacion = ubicacion || store.ubicacion;
+    store.propietarioId = propietarioId || store.propietarioId;
+    store.estado = estado || store.estado;
+
+    await store.save();
+
+    res.json({ msg: 'Comercio actualizado exitosamente' });
+
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).send('Error en el servidor');
+  }
+};
+
 exports.updateStoreStatus = async (req, res) => {
   const { id } = req.params;
   const { estado } = req.body;
@@ -222,6 +399,25 @@ exports.updateStoreStatus = async (req, res) => {
   }
 };
 
+exports.deleteStore = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const store = await Store.findByPk(id);
+    if (!store) {
+      return res.status(404).json({ msg: 'Comercio no encontrado' });
+    }
+
+    await store.destroy();
+
+    res.json({ msg: 'Comercio eliminado exitosamente' });
+
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).send('Error en el servidor');
+  }
+};
+
 // --- Gestión de Transacciones ---
 
 exports.getTransactions = async (req, res) => {
@@ -241,6 +437,36 @@ exports.getTransactions = async (req, res) => {
       ],
     });
     res.json(transactions);
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).send('Error en el servidor');
+  }
+};
+
+exports.getTransactionById = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const transaction = await Transaction.findByPk(id, {
+      include: [
+        {
+          model: User,
+          as: 'usuario',
+          attributes: ['nombre', 'email'],
+        },
+        {
+          model: Route,
+          as: 'ruta',
+          attributes: ['nombre'],
+        },
+      ],
+    });
+
+    if (!transaction) {
+      return res.status(404).json({ msg: 'Transacción no encontrada' });
+    }
+
+    res.json(transaction);
   } catch (error) {
     console.error(error.message);
     res.status(500).send('Error en el servidor');
